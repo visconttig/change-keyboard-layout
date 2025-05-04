@@ -1,13 +1,16 @@
-; To change keyboard:
-;;; 0x0050 is "request to change language input" (WM_INPUTLANGCHANGEREQUEST)
-;;; Third parameter (0x4090409) is the Language ID.
-; PostMessage, 0x0050, 0, 0x4090409,, A  ; 0x0050 is WM_INPUTLANGCHANGEREQUEST.
-
-; Colemak = KBDCMK.DLL
-; United States-International = 00020409
-
 #SingleInstance Force
 #Persistent
+COLEMAK := KBDCMK.DLL
+US_INTERNATIONAL := KBDUSX.DLL
+
+; To change keyboard:
+;;; 0x0050 is "request to change language input"
+; (WM_INPUTLANGCHANGEREQUEST)
 
 F5::
-    PostMessage, 0x0050, 0, KBDCMK.DLL,, A
+    PostMessage, 0x0050, 0, COLEMAK,, A
+return
+F12::
+    PostMessage, 0x0050, 0, US_INTERNATIONAL,, A
+return
+
