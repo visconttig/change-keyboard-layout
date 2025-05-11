@@ -1,16 +1,159 @@
-#SingleInstance Force
+#NoEnv
 #Persistent
-COLEMAK := KBDCMK.DLL
-US_INTERNATIONAL := KBDUSX.DLL
+#SingleInstance force
+SetBatchLines, -1
 
-; To change keyboard:
-;;; 0x0050 is "request to change language input"
-; (WM_INPUTLANGCHANGEREQUEST)
+GroupAdd, programs, ahk_exe Code.exe
+GroupAdd, programs, ahk_exe idea64.exe
 
-F5::
-    PostMessage, 0x0050, 0, COLEMAK,, A
+
+; Change to auto-start the Gui 
+; MUST be changed together !!
+;   {{{
+global GuiIsOpen := true
+CreateGui()
+;   }}}
+
+; ;================================================
+; ; COPY SCRIPT TO StartUp FOLDER FOR AUTORUNNING
+; ;put this line near the top of your script: 
+;     FileCreateShortcut, %A_ScriptFullPath%, %A_Startup%\%A_ScriptName%.lnk, %A_ScriptDir% 
+; ;=============================================
+
+CreateGui(){
+    global
+    ; Create a small GUI to show layout name
+Gui, +AlwaysOnTop +ToolWindow -SysMenu -Caption
+Gui, Font, s18 Bold, Arial
+Gui, Color, Black
+Gui, Add, Text, vLayoutText cWhite, Loading...
+Gui, Show, x1425 y295 NoActivate, Keyboard Layout
+}
+
+
+; Update layout name every half-second
+SetTimer, UpdateLayoutName, 500
 return
-F12::
-    PostMessage, 0x0050, 0, US_INTERNATIONAL,, A
+
+
+    UpdateLayoutName:
+    layoutHex := GetKeyboardLayoutHex()
+
+    ; Map known layout codes to friendly names and styles
+    layoutMap := {}
+    layoutMap["F0010409"] := {name: "US_Int", textColor: "White", bgColor: "Black"}
+    layoutMap["F0D30409"] := {name: "US_Clmk", textColor: "White", bgColor: "Red"}
+    layoutMap["080A580A"] := {name: "Spa_LA", textColor: "White", bgColor: "Gray"}
+    layoutMap["08040804"] := {name: "Chn_Simpl", textColor: "Gray", bgColor: "Black"}
+
+    if (layoutMap.HasKey(layoutHex)) {
+        layout := layoutMap[layoutHex]
+        layoutName := layout.name
+        textColor := layout.textColor
+        bgColor := layout.bgColor
+
+        Gui, Color, %bgColor%
+        GuiControl, +c%textColor%, LayoutText
+    } else {
+        ; Fallback: get layout name from registry
+        regKey := "HKLM\SYSTEM\CurrentControlSet\Control\Keyboard Layouts\" . layoutHex
+        RegRead, layoutName, %regKey%, Layout Text
+        if (ErrorLevel || layoutName = "")
+            layoutName := layoutHex
+
+        ; Set default colors
+        Gui, Color, Black
+        GuiControl, +cWhite, LayoutText
+    }
+
+    GuiControl,, LayoutText, %layoutName%
 return
+
+
+
+GetKeyboardLayoutHex()
+{
+    ; Get foreground window and thread ID
+    WinGet, hwnd, ID, A
+    threadID := DllCall("GetWindowThreadProcessId", "UInt", hwnd, "UInt*", 0)
+    hkl := DllCall("GetKeyboardLayout", "UInt", threadID)
+    
+    ; Convert HKL to an 8-digit hex string
+    layoutHex := Format("{:08X}", hkl & 0xFFFFFFFF)
+    return layoutHex
+}
+
+GuiClose:
+ExitApp
+
+
+
+ToggleGui(){
+    if (GuiIsOpen) {
+        GuiIsOpen := false
+        Gui, Destroy
+    } else {
+        GuiIsOpen := true
+        CreateGui()
+    }
+}
+
+
+
+; Hotkey to show or hide view:
+;#IfWinNotActive ahk_group programs
+F8::ToggleGui()
+
+;============================================================================
+; Automatically force US-International layout, resend hotkey and
+; go back to original keyboard layout [to enable shortcuts functionallity on
+; websites that don't support Colemak keyboard layout] - I'm looking at you `Clikup.com`.
+;============================================================================
+testingMode := false
+
+#If (tesingMode)    
+$^n::
+#If
+
+$^k::
+    originalLayout := GetKeyboardLayoutHex()
+      targetLayout := "F0010409" ; US_Int
+
+    ; Disable 'Vim Navigation' script [kills the script]
+    ; send message to speciall 'killer script'
+    Loop 5 {
+        Send, #{Space}
+        Sleep, 100
+        if (GetKeyboardLayoutHex() = targetLayout)
+            break
+    }
+
+    message := layoutMap[GetKeyboardLayoutHex()].name
+    Tooltip "Command send using: " . %message% 
+    SetTimer, RemoveTooltip, -3000
+
+    if (tesingMode){
+        Send, ^n
+    } else {
+        Send, ^k
+    }
+
+    Sleep, 100
+
+    Loop 5 {
+        Send, #{Space}
+        Sleep, 100
+        if (GetKeyboardLayoutHex() = originalLayout)
+            break
+    }
+
+    ; Enable all disabled scripts using 'master-runner' script
+    Run, schtasks /run /tn "AHK-Master-Runner"
+
+    RemoveTooltip:
+        Tooltip
+
+
+return
+
 
